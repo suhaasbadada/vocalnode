@@ -1,0 +1,6 @@
+ffmpeg
+fastapi
+uvicorn
+fastmcp
+sounddevice
+scipy
