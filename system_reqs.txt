@@ -4,6 +4,8 @@ uvicorn
 fastmcp
 sounddevice
 scipy
+tensorflow
+microwakeword
 
 # System library required by the sounddevice Python package (PortAudio bindings).
 # Not installed automatically — install via your OS package manager:
