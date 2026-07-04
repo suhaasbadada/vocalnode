@@ -4,3 +4,9 @@ uvicorn
 fastmcp
 sounddevice
 scipy
+
+# System library required by the sounddevice Python package (PortAudio bindings).
+# Not installed automatically — install via your OS package manager:
+#   macOS:  brew install portaudio
+#   Debian/Ubuntu: apt-get install libportaudio2 portaudio19-dev
+portaudio
