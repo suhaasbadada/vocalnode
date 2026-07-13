@@ -11,7 +11,7 @@ app = FastAPI()
 
 OUTPUT_AUDIO_DIR = Path("audio_data")
 OUTPUT_AUDIO_PATH = OUTPUT_AUDIO_DIR / "output_response.wav"
-VOICE_CLONE_REFERENCE_PATH = OUTPUT_AUDIO_DIR / "KR_clone.wav"
+VOICE_CLONE_REFERENCE_PATH = OUTPUT_AUDIO_DIR / "KR2_mvsep_clone.wav"
 
 # The 22050Hz spec (see .claude/skills/FormatAudioForTTS.md) is for reference
 # / voice-clone *input* audio. ChatterboxTTS's synthesized *output* comes out
@@ -57,17 +57,26 @@ def trigger_wakeword(request: TriggerWakewordRequest):
 
 
 def _load_tts_model():
-    """Lazily load and cache the ChatterboxTTS model.
+    """Lazily load and cache the ChatterboxTurboTTS model.
 
     The import is deferred so this module stays importable (and testable)
     without the chatterbox-tts package installed; it's only pulled in once
-    the endpoint is actually used.
+    the endpoint is actually used. Turbo trades some of the exaggeration/cfg
+    controls for speed (fewer vocoder steps, faster token decoding); device
+    picks the fastest backend available (CUDA > Apple MPS > CPU).
     """
     global _tts_model
     if _tts_model is None:
-        from chatterbox.tts import ChatterboxTTS
+        import torch
+        from chatterbox.tts_turbo import ChatterboxTurboTTS
 
-        _tts_model = ChatterboxTTS.from_pretrained(device="cpu")
+        if torch.cuda.is_available():
+            device = "cuda"
+        elif torch.backends.mps.is_available():
+            device = "mps"
+        else:
+            device = "cpu"
+        _tts_model = ChatterboxTurboTTS.from_pretrained(device=device)
     return _tts_model
 
 
