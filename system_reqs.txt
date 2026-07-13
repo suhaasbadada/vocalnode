@@ -6,6 +6,14 @@ sounddevice
 scipy
 tensorflow
 microwakeword
+chatterbox-tts
+
+# chatterbox-tts's resemble-perth dependency still imports the legacy
+# pkg_resources API (from setuptools). setuptools>=81 dropped pkg_resources,
+# which silently breaks perth.PerthImplicitWatermarker (swallowed
+# ImportError -> becomes None -> TypeError when chatterbox instantiates it).
+# Pin setuptools below that to keep pkg_resources available:
+setuptools<81
 
 # System library required by the sounddevice Python package (PortAudio bindings).
 # Not installed automatically — install via your OS package manager:
