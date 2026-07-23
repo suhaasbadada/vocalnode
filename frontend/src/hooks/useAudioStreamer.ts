@@ -49,6 +49,9 @@ export const useAudioStreamer = () => {
     exaggeration = 0.0,
     speed = 1.0
   ) => {
+    // Initialize AudioContext synchronously on user click to prevent browser autoplay block
+    getAudioContext();
+    
     setIsPlaying(true);
     setTtfb(null);
     nextPlayTimeRef.current = 0;

@@ -8,8 +8,9 @@ import json
 from pathlib import Path
 
 import numpy as np
+# pyrefly: ignore [missing-import]
 import pedalboard
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -71,11 +72,11 @@ def _load_tts_model():
     return _tts_model
 
 @app.post("/voice")
-async def upload_voice(audio: UploadFile = File(...)):
+async def upload_voice(audio: UploadFile = File(...), name: str = Form(None)):
     """Uploads an audio file to use as a voice clone reference/fingerprint."""
     voice_id = str(uuid.uuid4())
-    # Try to extract a clean name from the filename
-    voice_name = Path(audio.filename).stem if audio.filename else f"Voice {voice_id[:4]}"
+    # Try to extract a clean name from the filename or use custom name
+    voice_name = name if name else (Path(audio.filename).stem if audio.filename else f"Voice {voice_id[:4]}")
     
     file_extension = Path(audio.filename).suffix if audio.filename else ".wav"
     output_path = OUTPUT_AUDIO_DIR / f"{voice_id}{file_extension}"
@@ -138,7 +139,11 @@ def _generate_chunk_audio(chunk_text: str, voice_path: str | None, temperature: 
     samples = wav_tensor.squeeze(0).detach().cpu().numpy()
     
     if speed != 1.0:
-        samples = pedalboard.time_stretch(samples, 24000, speed)
+        # pedalboard.time_stretch works perfectly but returns shape (channels, samples).
+        # We must squeeze it back to a 1D array so the fade-in/fade-out logic works!
+        import pedalboard
+        stretched = pedalboard.time_stretch(samples, 24000, speed)
+        samples = stretched.squeeze()
     
     # Apply a 10ms fade-in and fade-out to prevent audio stitching clicks/pops
     fade_len = int(24000 * 0.01) # 10ms at 24kHz
@@ -147,6 +152,12 @@ def _generate_chunk_audio(chunk_text: str, voice_path: str | None, temperature: 
         fade_out = np.linspace(1.0, 0.0, fade_len)
         samples[:fade_len] *= fade_in
         samples[-fade_len:] *= fade_out
+
+    # Peak normalization to prevent hard clipping (which causes roughness/distortion)
+    # AI TTS models often generate waveforms that exceed 1.0 amplitude
+    peak = np.max(np.abs(samples))
+    if peak > 0.95:
+        samples = samples * (0.95 / peak)
 
     clipped = np.clip(samples, -1.0, 1.0)
     pcm_int16 = (clipped * 32767.0).astype("int16")

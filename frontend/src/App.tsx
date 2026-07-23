@@ -43,9 +43,19 @@ function App() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const defaultName = file.name.split('.')[0];
+    const customName = window.prompt("Enter a name for this voice profile:", defaultName);
+    if (customName === null) {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return; // User cancelled
+    }
+
     setIsUploading(true);
     const formData = new FormData();
     formData.append('audio', file);
+    if (customName.trim()) {
+      formData.append('name', customName.trim());
+    }
 
     try {
       const res = await fetch('/voice', {
@@ -78,46 +88,14 @@ function App() {
     <div className="app-container">
       <header className="header">
         <h1>VocalNode</h1>
-        <p>Real-time Voice Synthesis Engine</p>
+        <p><i style={{ color: 'var(--accent)' }}>(Near)</i> Real-time Voice Synthesis Engine</p>
       </header>
 
       <div className="main-grid">
         {/* Left Column */}
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <div className="glass-panel">
             <h2 className="panel-title"><Mic size={24} className="text-accent" /> Voice Fingerprint</h2>
-            
-            {voices.length > 0 && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <label style={{ display: 'block', marginBottom: '0.5rem', color: 'var(--text-secondary)' }}>
-                  Select a Saved Voice Profile
-                </label>
-                <select 
-                  value={voiceId || ''} 
-                  onChange={(e) => setVoiceId(e.target.value || null)}
-                  style={{
-                    width: '100%',
-                    background: 'rgba(0,0,0,0.2)',
-                    border: '1px solid var(--panel-border)',
-                    color: 'white',
-                    padding: '0.75rem',
-                    borderRadius: '8px',
-                    fontFamily: 'inherit',
-                    fontSize: '1rem',
-                    outline: 'none'
-                  }}
-                >
-                  <option value="">Default Voice (No Clone)</option>
-                  {voices.map(v => (
-                    <option key={v.id} value={v.id}>{v.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div style={{ textAlign: 'center', marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-              — OR UPLOAD A NEW VOICE —
-            </div>
 
             <input 
               type="file" 
@@ -181,13 +159,32 @@ function App() {
               </div>
             </div>
           </div>
+
+          <div className="glass-panel">
+            <h2 className="panel-title" style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Paralinguistic Tags</h2>
+            <div className="tags-hint" style={{ margin: 0 }}>
+              <span onClick={() => appendTag('[laugh]')}>[laugh]</span> 
+              <span onClick={() => appendTag('[chuckle]')}>[chuckle]</span> 
+              <span onClick={() => appendTag('[sigh]')}>[sigh]</span> 
+              <span onClick={() => appendTag('[gasp]')}>[gasp]</span> 
+              <span onClick={() => appendTag('[cough]')}>[cough]</span>
+              <span onClick={() => appendTag('[clear throat]')}>[clear throat]</span>
+              <span onClick={() => appendTag('[sniff]')}>[sniff]</span>
+              <span onClick={() => appendTag('[groan]')}>[groan]</span>
+              <span onClick={() => appendTag('[shush]')}>[shush]</span>
+            </div>
+          </div>
         </div>
 
         {/* Right Column */}
         <div className="glass-panel" style={{ margin: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-            <h2 className="panel-title" style={{ margin: 0 }}><Play size={24} className="text-accent" /> Synthesizer Studio</h2>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+              <h2 className="panel-title" style={{ margin: 0 }}>
+                <Play size={24} className="text-accent" /> Synthesizer Studio
+              </h2>
+            </div>
             
             <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
               <div className={`eq-container ${isPlaying ? 'active' : ''}`}>
@@ -207,33 +204,52 @@ function App() {
             placeholder="Enter text to synthesize... Try adding a paralinguistic tag!"
             value={text}
             onChange={(e) => setText(e.target.value)}
-            style={{ flex: 1, minHeight: '200px' }}
+            style={{ flex: 1, minHeight: '200px', marginBottom: '1.5rem' }}
           />
-          
-          <div className="tags-hint">
-            Available tags: 
-            <span onClick={() => appendTag('[laugh]')}>[laugh]</span> 
-            <span onClick={() => appendTag('[chuckle]')}>[chuckle]</span> 
-            <span onClick={() => appendTag('[sigh]')}>[sigh]</span> 
-            <span onClick={() => appendTag('[gasp]')}>[gasp]</span> 
-            <span onClick={() => appendTag('[cough]')}>[cough]</span>
-            <span onClick={() => appendTag('[clear throat]')}>[clear throat]</span>
-            <span onClick={() => appendTag('[sniff]')}>[sniff]</span>
-            <span onClick={() => appendTag('[groan]')}>[groan]</span>
-            <span onClick={() => appendTag('[shush]')}>[shush]</span>
-          </div>
 
-          <button 
-            className="btn btn-primary" 
-            onClick={handleGenerate}
-            disabled={!text.trim() || isPlaying}
-          >
-            {isPlaying ? (
-              <><Loader2 size={20} className="animate-spin" /> Synthesizing & Playing...</>
-            ) : (
-              <><Play size={20} /> Generate & Stream Audio</>
-            )}
-          </button>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'stretch' }}>
+            <select 
+              value={voiceId || ''} 
+              onChange={(e) => setVoiceId(e.target.value || null)}
+              style={{
+                flex: '1 1 0',
+                width: '50%',
+                background: 'linear-gradient(180deg, #f9fafb, #d1d5db)',
+                border: '1px solid #9ca3af',
+                color: '#1f2937',
+                padding: '0.75rem 1rem',
+                borderRadius: '6px',
+                fontFamily: 'inherit',
+                fontSize: '1rem',
+                fontWeight: 700,
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+                outline: 'none',
+                cursor: 'pointer',
+                boxShadow: 'inset 0 2px 0 white, 0 4px 0 #9ca3af, 0 6px 10px rgba(0,0,0,0.1)',
+                margin: 0,
+                boxSizing: 'border-box'
+              }}
+            >
+              <option value="">Default Voice</option>
+              {voices.map(v => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </select>
+
+            <button 
+              className="btn btn-primary" 
+              onClick={handleGenerate}
+              disabled={!text.trim() || isPlaying}
+              style={{ flex: '1 1 0', width: '50%', margin: 0, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+            >
+              {isPlaying ? (
+                <><Loader2 size={20} className="animate-spin" /> Synthesizing & Playing...</>
+              ) : (
+                <><Play size={20} /> Stream Audio</>
+              )}
+            </button>
+          </div>
 
           <div className="hud-container">
             <div className="hud-box">
