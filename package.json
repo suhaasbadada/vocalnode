@@ -1,0 +1,10 @@
+{
+  "name": "vocalnode-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "node -e \"const arg = process.argv.pop(); if (arg === 'web:api') require('child_process').execSync('npm run _web:api', {stdio: 'inherit'}); else if (arg === 'web:app') require('child_process').execSync('npm run _web:app', {stdio: 'inherit'}); else console.error('Please specify web:api or web:app');\"",
+    "_web:api": "cd . && .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload",
+    "_web:app": "npm run dev --prefix frontend"
+  }
+}

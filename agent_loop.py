@@ -21,7 +21,6 @@ import httpx
 import numpy as np
 from fastmcp import Client
 
-from app.main import OUTPUT_AUDIO_PATH as GENERATED_SPEECH_PATH
 from mcp_server import audio_hardware_mcp
 
 logger = logging.getLogger(__name__)
@@ -43,6 +42,7 @@ COMMAND_CAPTURE_DURATION_S = 5.0
 AUDIO_CHUNK_DIR = Path("audio_data")
 LISTEN_CHUNK_PATH = AUDIO_CHUNK_DIR / "listen_chunk.wav"
 COMMAND_CAPTURE_PATH = AUDIO_CHUNK_DIR / "command_capture.wav"
+GENERATED_SPEECH_PATH = AUDIO_CHUNK_DIR / "output_response.wav"
 GENERATE_SPEECH_URL = "http://localhost:8000/generate-speech"
 HARDCODED_RESPONSE_TEXT = "Hello! I heard you say the wake word."
 
@@ -124,12 +124,16 @@ async def play_via_mcp(client: Client, file_path: Path) -> str:
     return result.data
 
 
-async def request_generated_speech(text: str, url: str = GENERATE_SPEECH_URL) -> dict:
-    """POST hardcoded text to the /generate-speech endpoint and return its JSON response."""
+async def request_generated_speech(text: str, url: str = GENERATE_SPEECH_URL) -> None:
+    """POST text to the /generate-speech endpoint and stream its raw PCM audio to disk."""
     async with httpx.AsyncClient() as http_client:
-        response = await http_client.post(url, json={"text": text}, timeout=30.0)
-        response.raise_for_status()
-        return response.json()
+        async with http_client.stream("POST", url, json={"text": text}, timeout=30.0) as response:
+            response.raise_for_status()
+            # For simplicity in this demo, just write raw PCM to a file,
+            # though in a real streaming app we'd play chunks immediately.
+            with open(GENERATED_SPEECH_PATH, "wb") as f:
+                async for chunk in response.aiter_bytes():
+                    f.write(chunk)
 
 
 async def run_agent_loop(
