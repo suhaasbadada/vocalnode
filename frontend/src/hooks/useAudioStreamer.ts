@@ -5,6 +5,8 @@ export const useAudioStreamer = () => {
   const nextPlayTimeRef = useRef<number>(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [ttfb, setTtfb] = useState<number | null>(null);
+  const [audioDuration, setAudioDuration] = useState<number | null>(null);
+  const [totalGenTime, setTotalGenTime] = useState<number | null>(null);
   
   const getAudioContext = () => {
     if (!audioContextRef.current) {
@@ -42,6 +44,7 @@ export const useAudioStreamer = () => {
   };
 
   const streamAudio = async (
+    playbackMode: 'streaming' | 'buffered',
     text: string, 
     voiceId: string | null,
     temperature = 0.8,
@@ -54,6 +57,8 @@ export const useAudioStreamer = () => {
     
     setIsPlaying(true);
     setTtfb(null);
+    setAudioDuration(null);
+    setTotalGenTime(null);
     nextPlayTimeRef.current = 0;
     
     const startTime = Date.now();
@@ -62,9 +67,7 @@ export const useAudioStreamer = () => {
     try {
       const response = await fetch('/generate-speech', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           text, 
           voice_id: voiceId,
@@ -83,12 +86,14 @@ export const useAudioStreamer = () => {
       if (!reader) throw new Error('No reader available');
 
       let leftover = new Uint8Array(0);
+      let totalSamples = 0;
+      const chunkBuffer: Int16Array[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
         
         if (value && value.length > 0) {
-          if (!firstByteReceived) {
+          if (playbackMode === 'streaming' && !firstByteReceived) {
             firstByteReceived = true;
             setTtfb(Date.now() - startTime);
           }
@@ -104,12 +109,29 @@ export const useAudioStreamer = () => {
           if (safeLength > 0) {
             // combined is a new ArrayBuffer so byteOffset is guaranteed to be 0
             const int16Array = new Int16Array(combined.buffer, 0, safeLength / 2);
-            playChunk(int16Array); // We removed the speed parameter as it is now handled by backend
+            totalSamples += int16Array.length;
+            
+            if (playbackMode === 'buffered') {
+              chunkBuffer.push(int16Array);
+            } else {
+              playChunk(int16Array);
+            }
           }
         }
 
-        if (done) break;
+        if (done) {
+          if (playbackMode === 'buffered' && chunkBuffer.length > 0) {
+            setTtfb(Date.now() - startTime);
+            for (const chunk of chunkBuffer) {
+              playChunk(chunk);
+            }
+          }
+          break;
+        }
       }
+      
+      setAudioDuration(totalSamples / 24000);
+      setTotalGenTime(Date.now() - startTime);
     } catch (err) {
       console.error('Streaming error:', err);
     } finally {
@@ -119,5 +141,5 @@ export const useAudioStreamer = () => {
     }
   };
 
-  return { streamAudio, isPlaying, ttfb };
+  return { streamAudio, isPlaying, ttfb, audioDuration, totalGenTime };
 };

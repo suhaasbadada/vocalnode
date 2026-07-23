@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Mic, UploadCloud, Play, Loader2, Settings2 } from 'lucide-react';
 import { useAudioStreamer } from './hooks/useAudioStreamer';
+import { useAudioRecorder } from './hooks/useAudioRecorder';
 import './index.css';
 
 interface VoiceProfile {
@@ -20,35 +21,14 @@ function App() {
   const [cadence, setCadence] = useState(1.2);
   const [tone, setTone] = useState(0.0);
 
+  const [playbackMode, setPlaybackMode] = useState<'streaming' | 'buffered'>('streaming');
+
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { streamAudio, isPlaying, ttfb } = useAudioStreamer();
-
-  const fetchVoices = async () => {
-    try {
-      const res = await fetch('/voices');
-      const data = await res.json();
-      if (data.status === 'success') {
-        setVoices(data.voices);
-      }
-    } catch (err) {
-      console.error('Failed to fetch voices', err);
-    }
-  };
-
-  useEffect(() => {
-    fetchVoices();
-  }, []);
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const defaultName = file.name.split('.')[0];
-    const customName = window.prompt("Enter a name for this voice profile:", defaultName);
-    if (customName === null) {
-      if (fileInputRef.current) fileInputRef.current.value = '';
-      return; // User cancelled
-    }
+  const { streamAudio, isPlaying, ttfb, audioDuration, totalGenTime } = useAudioStreamer();
+  
+  const uploadFile = async (file: File) => {
+    const customName = prompt('Enter a name for this voice fingerprint:', file.name.split('.')[0]);
+    if (!customName) return; // User cancelled
 
     setIsUploading(true);
     const formData = new FormData();
@@ -75,6 +55,43 @@ function App() {
     }
   };
 
+  const { isRecording, recordingTime, startRecording, stopRecording } = useAudioRecorder({
+    onComplete: (file) => uploadFile(file)
+  });
+
+  const fetchVoices = async () => {
+    try {
+      const res = await fetch('/voices');
+      const data = await res.json();
+      if (data.status === 'success') {
+        setVoices(data.voices);
+      }
+    } catch (err) {
+      console.error('Failed to fetch voices', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchVoices();
+  }, []);
+
+  const handleRecordToggle = async () => {
+    if (isRecording) {
+      const file = await stopRecording();
+      if (file) {
+        uploadFile(file);
+      }
+    } else {
+      startRecording();
+    }
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    uploadFile(file);
+  };
+
   const handleGenerate = () => {
     if (!text.trim()) return;
     streamAudio(text, voiceId, prosody, cadence, tone, speed);
@@ -85,15 +102,15 @@ function App() {
   };
 
   return (
-    <div className="app-container">
-      <header className="header">
+    <div className="app-container" style={{ height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <header className="header" style={{ flexShrink: 0 }}>
         <h1>VocalNode</h1>
         <p><i style={{ color: 'var(--accent)' }}>(Near)</i> Real-time Voice Synthesis Engine</p>
       </header>
 
-      <div className="main-grid">
+      <div className="main-grid" style={{ flex: 1, overflowY: 'auto' }}>
         {/* Left Column */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', height: '100%' }}>
           <div className="glass-panel">
             <h2 className="panel-title"><Mic size={24} className="text-accent" /> Voice Fingerprint</h2>
 
@@ -105,21 +122,48 @@ function App() {
               onChange={handleFileUpload} 
             />
             
-            <div 
-              className={`file-dropzone ${voiceId && !voices.find(v => v.id === voiceId) ? 'success' : ''}`}
-              onClick={() => fileInputRef.current?.click()}
-            >
-              {isUploading ? (
-                <Loader2 size={48} className="animate-spin text-accent" />
-              ) : (
-                <>
-                  <UploadCloud size={48} color="var(--accent)" />
-                  <div>
-                    <p style={{ fontSize: '1.1rem', fontWeight: 600 }}>Upload Audio Reference</p>
-                    <p style={{ color: 'var(--text-secondary)' }}>Click to upload a .wav or .mp3 file for voice cloning</p>
-                  </div>
-                </>
-              )}
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'stretch' }}>
+              <div 
+                className={`file-dropzone ${voiceId && !voices.find(v => v.id === voiceId) ? 'success' : ''}`}
+                onClick={() => fileInputRef.current?.click()}
+                style={{ flex: 1, margin: 0 }}
+              >
+                {isUploading ? (
+                  <Loader2 size={32} className="animate-spin text-accent" />
+                ) : (
+                  <>
+                    <UploadCloud size={32} color="var(--accent)" />
+                    <div>
+                      <p style={{ fontSize: '1rem', fontWeight: 600 }}>Upload Audio</p>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>.wav or .mp3</p>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div 
+                className={`file-dropzone ${isRecording ? 'recording' : ''}`}
+                onClick={handleRecordToggle}
+                style={{ flex: 1, margin: 0, borderColor: isRecording ? 'var(--error)' : 'var(--panel-border)', background: isRecording ? 'rgba(239, 68, 68, 0.1)' : '' }}
+              >
+                {isRecording ? (
+                  <>
+                    <Mic size={32} color="var(--error)" className="animate-pulse" />
+                    <div>
+                      <p style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--error)' }}>Recording... {recordingTime}s</p>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Click to stop (max 10s)</p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <Mic size={32} color="var(--accent)" />
+                    <div>
+                      <p style={{ fontSize: '1rem', fontWeight: 600 }}>Record Audio</p>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Use microphone</p>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
@@ -160,7 +204,7 @@ function App() {
             </div>
           </div>
 
-          <div className="glass-panel">
+          <div className="glass-panel" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             <h2 className="panel-title" style={{ fontSize: '1rem', marginBottom: '0.75rem' }}>Paralinguistic Tags</h2>
             <div className="tags-hint" style={{ margin: 0 }}>
               <span onClick={() => appendTag('[laugh]')}>[laugh]</span> 
@@ -177,7 +221,7 @@ function App() {
         </div>
 
         {/* Right Column */}
-        <div className="glass-panel" style={{ margin: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
+        <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -201,19 +245,45 @@ function App() {
           </div>
           
           <textarea 
-            placeholder="Enter text to synthesize... Try adding a paralinguistic tag!"
-            value={text}
+            value={text} 
             onChange={(e) => setText(e.target.value)}
+            placeholder="Type your speech here..."
+            className="panel"
             style={{ flex: 1, minHeight: '200px', marginBottom: '1.5rem' }}
           />
 
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'stretch' }}>
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>PLAYBACK MODE:</span>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+              <input 
+                type="radio" 
+                name="playbackMode" 
+                value="streaming" 
+                checked={playbackMode === 'streaming'} 
+                onChange={() => setPlaybackMode('streaming')} 
+                style={{ accentColor: 'var(--accent)' }}
+              />
+              Streaming (Fast Response)
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+              <input 
+                type="radio" 
+                name="playbackMode" 
+                value="buffered" 
+                checked={playbackMode === 'buffered'} 
+                onChange={() => setPlaybackMode('buffered')} 
+                style={{ accentColor: 'var(--accent)' }}
+              />
+              Buffered (Seamless Audio)
+            </label>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', alignItems: 'stretch' }}>
             <select 
               value={voiceId || ''} 
               onChange={(e) => setVoiceId(e.target.value || null)}
               style={{
-                flex: '1 1 0',
-                width: '50%',
+                flex: 1,
                 background: 'linear-gradient(180deg, #f9fafb, #d1d5db)',
                 border: '1px solid #9ca3af',
                 color: '#1f2937',
@@ -239,14 +309,18 @@ function App() {
 
             <button 
               className="btn btn-primary" 
-              onClick={handleGenerate}
+              onClick={() => streamAudio(playbackMode, text, voiceId, prosody, cadence, tone, speed)}
               disabled={!text.trim() || isPlaying}
-              style={{ flex: '1 1 0', width: '50%', margin: 0, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+              style={{ flex: 1, margin: 0, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
             >
               {isPlaying ? (
-                <><Loader2 size={20} className="animate-spin" /> Synthesizing & Playing...</>
+                <>
+                  <Loader2 size={20} className="animate-spin" /> Streaming...
+                </>
               ) : (
-                <><Play size={20} /> Stream Audio</>
+                <>
+                  <Play size={20} /> Stream Audio
+                </>
               )}
             </button>
           </div>
@@ -259,6 +333,18 @@ function App() {
               </span>
             </div>
             <div className="hud-box">
+              <span className="hud-label">Total Gen Time</span>
+              <span className="hud-value">
+                {totalGenTime !== null ? `${(totalGenTime / 1000).toFixed(2)} s` : '--'}
+              </span>
+            </div>
+            <div className="hud-box">
+              <span className="hud-label">Audio Length</span>
+              <span className="hud-value">
+                {audioDuration !== null ? `${audioDuration.toFixed(2)} s` : '--'}
+              </span>
+            </div>
+            <div className="hud-box">
               <span className="hud-label">Status</span>
               <span className="hud-value" style={{ color: isPlaying ? 'var(--success)' : 'var(--text-secondary)' }}>
                 {isPlaying ? 'STREAMING' : 'READY'}
@@ -266,11 +352,6 @@ function App() {
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="legal-warning">
-        <span style={{ fontWeight: 800, marginRight: '0.5rem' }}>LEGAL WARNING:</span> 
-        Unauthorized cloning of celebrity, public figure, or third-party voices without explicit consent is strictly prohibited and violates <strong>Right of Publicity</strong> laws, including the <strong>ELVIS Act (Ensuring Likeness Voice and Image Security Act)</strong>. Do not upload audio unless you own the rights or have obtained explicit legal permission.
       </div>
 
     </div>

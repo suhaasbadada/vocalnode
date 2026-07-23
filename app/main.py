@@ -105,15 +105,14 @@ def get_voices():
 
 def chunk_text(text: str) -> list[str]:
     """Splits text intelligently by punctuation while preserving paralinguistic tags."""
-    # Split by sentence-ending punctuation or commas, 
-    # to keep chunks short for minimum TTFB latency.
-    chunks = re.split(r'([.?!,])\s*', text)
+    # Split by sentence-ending punctuation to keep chunks long enough to prevent buffer starvation.
+    chunks = re.split(r'([.?!])\s*', text)
     
     merged_chunks = []
     current_chunk = ""
     for part in chunks:
         current_chunk += part
-        if part in ['.', '?', '!', ',']:
+        if part in ['.', '?', '!']:
             if current_chunk.strip():
                 merged_chunks.append(current_chunk.strip())
             current_chunk = " "
@@ -127,16 +126,21 @@ def _generate_chunk_audio(chunk_text: str, voice_path: str | None, temperature: 
     """Generates audio bytes for a single text chunk."""
     model = _load_tts_model()
     # Pass audio_prompt_path directly to generate if a voice_path is provided
-    # Note: If voice_path is None, it uses the base voice.
     wav_tensor = model.generate(
-        chunk_text, 
+        chunk_text,
         audio_prompt_path=voice_path,
         temperature=temperature,
         repetition_penalty=repetition_penalty,
-        exaggeration=exaggeration
+        exaggeration=exaggeration,
     )
     
     samples = wav_tensor.squeeze(0).detach().cpu().numpy()
+    
+    # We trim leading/trailing digital silence (top_db=45 is very lenient) 
+    # to prevent huge 5-second gaps of pure silence that some models generate,
+    # but it still preserves natural breaths and room tone.
+    import librosa
+    samples, _ = librosa.effects.trim(samples, top_db=45)
     
     if speed != 1.0:
         # pedalboard.time_stretch works perfectly but returns shape (channels, samples).
