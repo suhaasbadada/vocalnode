@@ -147,7 +147,7 @@ function App() {
 
           <div className="glass-panel">
             <h2 className="panel-title"><Settings2 size={24} className="text-accent" /> Advanced Tuning</h2>
-            <div className="tuning-grid" style={{ gridTemplateColumns: '1fr', gap: '1.25rem' }}>
+            <div className="tuning-grid">
               <div className="slider-group">
                 <div className="slider-header">
                   <span className="slider-label">Speed (Multiplier)</span>
@@ -185,7 +185,23 @@ function App() {
 
         {/* Right Column */}
         <div className="glass-panel" style={{ margin: 0, height: '100%', display: 'flex', flexDirection: 'column' }}>
-          <h2 className="panel-title"><Play size={24} className="text-accent" /> Synthesizer Studio</h2>
+          
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+            <h2 className="panel-title" style={{ margin: 0 }}><Play size={24} className="text-accent" /> Synthesizer Studio</h2>
+            
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+              <div className={`eq-container ${isPlaying ? 'active' : ''}`}>
+                <div className="eq-bar"></div>
+                <div className="eq-bar"></div>
+                <div className="eq-bar"></div>
+                <div className="eq-bar"></div>
+                <div className="eq-bar"></div>
+              </div>
+              <div className={`on-air-sign ${isPlaying ? 'active' : ''}`}>
+                <div className="on-air-dot"></div> ON AIR
+              </div>
+            </div>
+          </div>
           
           <textarea 
             placeholder="Enter text to synthesize... Try adding a paralinguistic tag!"
@@ -235,6 +251,12 @@ function App() {
           </div>
         </div>
       </div>
+
+      <div className="legal-warning">
+        <span style={{ fontWeight: 800, marginRight: '0.5rem' }}>LEGAL WARNING:</span> 
+        Unauthorized cloning of celebrity, public figure, or third-party voices without explicit consent is strictly prohibited and violates <strong>Right of Publicity</strong> laws, including the <strong>ELVIS Act (Ensuring Likeness Voice and Image Security Act)</strong>. Do not upload audio unless you own the rights or have obtained explicit legal permission.
+      </div>
+
     </div>
   );
 }

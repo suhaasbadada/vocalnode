@@ -16,7 +16,7 @@ export const useAudioStreamer = () => {
     return audioContextRef.current;
   };
 
-  const playChunk = (int16Array: Int16Array, speed: number, sampleRate = 24000) => {
+  const playChunk = (int16Array: Int16Array, sampleRate = 24000) => {
     const ctx = getAudioContext();
     
     // Convert Int16 to Float32 for Web Audio API
@@ -101,7 +101,7 @@ export const useAudioStreamer = () => {
           if (safeLength > 0) {
             // combined is a new ArrayBuffer so byteOffset is guaranteed to be 0
             const int16Array = new Int16Array(combined.buffer, 0, safeLength / 2);
-            playChunk(int16Array, 1.0); // We pass 1.0 because speed is now handled by backend
+            playChunk(int16Array); // We removed the speed parameter as it is now handled by backend
           }
         }
 
