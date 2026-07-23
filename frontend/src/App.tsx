@@ -201,6 +201,10 @@ function App() {
             <span onClick={() => appendTag('[sigh]')}>[sigh]</span> 
             <span onClick={() => appendTag('[gasp]')}>[gasp]</span> 
             <span onClick={() => appendTag('[cough]')}>[cough]</span>
+            <span onClick={() => appendTag('[clear throat]')}>[clear throat]</span>
+            <span onClick={() => appendTag('[sniff]')}>[sniff]</span>
+            <span onClick={() => appendTag('[groan]')}>[groan]</span>
+            <span onClick={() => appendTag('[shush]')}>[shush]</span>
           </div>
 
           <button 

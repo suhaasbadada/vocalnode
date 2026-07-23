@@ -8,6 +8,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import pedalboard
 from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -35,6 +36,7 @@ class GenerateSpeechRequest(BaseModel):
     temperature: float = 0.8
     repetition_penalty: float = 1.2
     exaggeration: float = 0.0
+    speed: float = 1.0
 
 def _file_exists_locally(path: str) -> bool:
     result = subprocess.run(["test", "-f", path], capture_output=True)
@@ -120,7 +122,7 @@ def chunk_text(text: str) -> list[str]:
         
     return merged_chunks
 
-def _generate_chunk_audio(chunk_text: str, voice_path: str | None, temperature: float, repetition_penalty: float, exaggeration: float) -> bytes:
+def _generate_chunk_audio(chunk_text: str, voice_path: str | None, temperature: float, repetition_penalty: float, exaggeration: float, speed: float) -> bytes:
     """Generates audio bytes for a single text chunk."""
     model = _load_tts_model()
     # Pass audio_prompt_path directly to generate if a voice_path is provided
@@ -134,6 +136,9 @@ def _generate_chunk_audio(chunk_text: str, voice_path: str | None, temperature: 
     )
     
     samples = wav_tensor.squeeze(0).detach().cpu().numpy()
+    
+    if speed != 1.0:
+        samples = pedalboard.time_stretch(samples, 24000, speed)
     
     # Apply a 10ms fade-in and fade-out to prevent audio stitching clicks/pops
     fade_len = int(24000 * 0.01) # 10ms at 24kHz
@@ -172,7 +177,8 @@ async def generate_speech(request: GenerateSpeechRequest):
                 voice_path,
                 request.temperature,
                 request.repetition_penalty,
-                request.exaggeration
+                request.exaggeration,
+                request.speed
             )
             yield pcm_bytes
 

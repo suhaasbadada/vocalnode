@@ -30,7 +30,6 @@ export const useAudioStreamer = () => {
 
     const source = ctx.createBufferSource();
     source.buffer = audioBuffer;
-    source.playbackRate.value = speed;
     source.connect(ctx.destination);
 
     // Schedule playback continuously
@@ -39,8 +38,7 @@ export const useAudioStreamer = () => {
     }
     
     source.start(nextPlayTimeRef.current);
-    // Adjusted duration based on playback speed to ensure gapless streaming
-    nextPlayTimeRef.current += (audioBuffer.duration / speed);
+    nextPlayTimeRef.current += audioBuffer.duration;
   };
 
   const streamAudio = async (
@@ -69,7 +67,8 @@ export const useAudioStreamer = () => {
           voice_id: voiceId,
           temperature,
           repetition_penalty: repetitionPenalty,
-          exaggeration
+          exaggeration,
+          speed
         }),
       });
 
@@ -102,7 +101,7 @@ export const useAudioStreamer = () => {
           if (safeLength > 0) {
             // combined is a new ArrayBuffer so byteOffset is guaranteed to be 0
             const int16Array = new Int16Array(combined.buffer, 0, safeLength / 2);
-            playChunk(int16Array, speed);
+            playChunk(int16Array, 1.0); // We pass 1.0 because speed is now handled by backend
           }
         }
 
