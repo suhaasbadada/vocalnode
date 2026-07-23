@@ -157,6 +157,11 @@ def _generate_chunk_audio(chunk_text: str, voice_path: str | None, temperature: 
         samples[:fade_len] *= fade_in
         samples[-fade_len:] *= fade_out
 
+    # Add a 300ms silence gap to the end of the chunk for natural pacing between sentences
+    silence_len = int(24000 * 0.3)
+    silence = np.zeros(silence_len, dtype=samples.dtype)
+    samples = np.concatenate((samples, silence))
+
     # Peak normalization to prevent hard clipping (which causes roughness/distortion)
     # AI TTS models often generate waveforms that exceed 1.0 amplitude
     peak = np.max(np.abs(samples))

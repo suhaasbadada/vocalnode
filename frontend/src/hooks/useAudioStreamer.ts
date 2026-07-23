@@ -7,6 +7,43 @@ export const useAudioStreamer = () => {
   const [ttfb, setTtfb] = useState<number | null>(null);
   const [audioDuration, setAudioDuration] = useState<number | null>(null);
   const [totalGenTime, setTotalGenTime] = useState<number | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  
+  const createWavUrl = (int16Arrays: Int16Array[], sampleRate: number = 24000) => {
+    let totalLength = 0;
+    for (const arr of int16Arrays) totalLength += arr.length;
+    const wavBuffer = new ArrayBuffer(44 + totalLength * 2);
+    const view = new DataView(wavBuffer);
+    
+    const writeString = (offset: number, string: string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+    
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + totalLength * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true);
+    view.setUint16(22, 1, true);
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true);
+    writeString(36, 'data');
+    view.setUint32(40, totalLength * 2, true);
+    
+    let offset = 44;
+    for (const arr of int16Arrays) {
+      for (let i = 0; i < arr.length; i++, offset += 2) {
+        view.setInt16(offset, arr[i], true);
+      }
+    }
+    
+    return URL.createObjectURL(new Blob([view], { type: 'audio/wav' }));
+  };
   
   const getAudioContext = () => {
     if (!audioContextRef.current) {
@@ -59,6 +96,10 @@ export const useAudioStreamer = () => {
     setTtfb(null);
     setAudioDuration(null);
     setTotalGenTime(null);
+    if (audioUrl) {
+      URL.revokeObjectURL(audioUrl);
+      setAudioUrl(null);
+    }
     nextPlayTimeRef.current = 0;
     
     const startTime = Date.now();
@@ -88,6 +129,7 @@ export const useAudioStreamer = () => {
       let leftover = new Uint8Array(0);
       let totalSamples = 0;
       const chunkBuffer: Int16Array[] = [];
+      const allChunks: Int16Array[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -110,6 +152,7 @@ export const useAudioStreamer = () => {
             // combined is a new ArrayBuffer so byteOffset is guaranteed to be 0
             const int16Array = new Int16Array(combined.buffer, 0, safeLength / 2);
             totalSamples += int16Array.length;
+            allChunks.push(int16Array);
             
             if (playbackMode === 'buffered') {
               chunkBuffer.push(int16Array);
@@ -132,6 +175,7 @@ export const useAudioStreamer = () => {
       
       setAudioDuration(totalSamples / 24000);
       setTotalGenTime(Date.now() - startTime);
+      setAudioUrl(createWavUrl(allChunks));
     } catch (err) {
       console.error('Streaming error:', err);
     } finally {
@@ -141,5 +185,5 @@ export const useAudioStreamer = () => {
     }
   };
 
-  return { streamAudio, isPlaying, ttfb, audioDuration, totalGenTime };
+  return { streamAudio, isPlaying, ttfb, audioDuration, totalGenTime, audioUrl };
 };

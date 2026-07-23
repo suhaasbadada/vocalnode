@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Mic, UploadCloud, Play, Loader2, Settings2 } from 'lucide-react';
+import { Mic, UploadCloud, Play, Loader2, Settings2, Download } from 'lucide-react';
 import { useAudioStreamer } from './hooks/useAudioStreamer';
 import { useAudioRecorder } from './hooks/useAudioRecorder';
 import './index.css';
@@ -24,7 +24,7 @@ function App() {
   const [playbackMode, setPlaybackMode] = useState<'streaming' | 'buffered'>('streaming');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { streamAudio, isPlaying, ttfb, audioDuration, totalGenTime } = useAudioStreamer();
+  const { streamAudio, isPlaying, ttfb, audioDuration, totalGenTime, audioUrl } = useAudioStreamer();
   
   const uploadFile = async (file: File) => {
     const customName = prompt('Enter a name for this voice fingerprint:', file.name.split('.')[0]);
@@ -116,7 +116,7 @@ function App() {
 
             <input 
               type="file" 
-              accept="audio/wav,audio/mpeg" 
+              accept="audio/wav,audio/mpeg,audio/mp4,.m4a" 
               ref={fileInputRef} 
               style={{ display: 'none' }} 
               onChange={handleFileUpload} 
@@ -249,7 +249,7 @@ function App() {
             onChange={(e) => setText(e.target.value)}
             placeholder="Type your speech here..."
             className="panel"
-            style={{ flex: 1, minHeight: '200px', marginBottom: '1.5rem' }}
+            style={{ flex: 1, minHeight: '150px', marginBottom: '1.5rem', marginTop: '1rem' }}
           />
 
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem', alignItems: 'center' }}>
@@ -307,29 +307,52 @@ function App() {
               ))}
             </select>
 
-            <button 
-              className="btn btn-primary" 
-              onClick={() => streamAudio(playbackMode, text, voiceId, prosody, cadence, tone, speed)}
-              disabled={!text.trim() || isPlaying}
-              style={{ flex: 1, margin: 0, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-            >
-              {isPlaying ? (
-                <>
-                  <Loader2 size={20} className="animate-spin" /> Streaming...
-                </>
-              ) : (
-                <>
-                  <Play size={20} /> Stream Audio
-                </>
+            <div style={{ flex: 1, display: 'flex', gap: '0.5rem', margin: 0, boxSizing: 'border-box' }}>
+              <button 
+                className="btn btn-primary" 
+                onClick={() => streamAudio(playbackMode, text, voiceId, prosody, cadence, tone, speed)}
+                disabled={!text.trim() || isPlaying}
+                style={{ flex: 1, margin: 0, boxSizing: 'border-box', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+              >
+                {isPlaying ? (
+                  <>
+                    <Loader2 size={20} className="animate-spin" /> Streaming...
+                  </>
+                ) : (
+                  <>
+                    <Play size={20} /> Stream Audio
+                  </>
+                )}
+              </button>
+              
+              {audioUrl && (
+                <a 
+                  href={audioUrl} 
+                  download="generated_audio.wav"
+                  className="btn btn-primary"
+                  style={{ 
+                    flex: '0 0 auto', 
+                    width: 'auto',
+                    margin: 0, 
+                    boxSizing: 'border-box', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    textDecoration: 'none'
+                  }}
+                  title="Download Audio"
+                >
+                  <Download size={20} />
+                </a>
               )}
-            </button>
+            </div>
           </div>
 
           <div className="hud-container">
             <div className="hud-box">
               <span className="hud-label">Time to First Byte</span>
               <span className="hud-value">
-                {ttfb !== null ? `${ttfb} ms` : '--'}
+                {ttfb !== null ? `${(ttfb / 1000).toFixed(2)} s` : '--'}
               </span>
             </div>
             <div className="hud-box">

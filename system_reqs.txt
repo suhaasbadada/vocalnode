@@ -7,6 +7,9 @@ scipy
 tensorflow
 microwakeword
 chatterbox-tts
+librosa
+pedalboard
+python-multipart
 
 # chatterbox-tts's resemble-perth dependency still imports the legacy
 # pkg_resources API (from setuptools). setuptools>=81 dropped pkg_resources,
