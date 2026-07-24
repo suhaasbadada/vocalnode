@@ -135,7 +135,7 @@ function App() {
                     <UploadCloud size={32} color="var(--accent)" />
                     <div>
                       <p style={{ fontSize: '1rem', fontWeight: 600 }}>Upload Audio</p>
-                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>.wav or .mp3</p>
+                      <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>.wav, .mp3, or .m4a</p>
                     </div>
                   </>
                 )}
